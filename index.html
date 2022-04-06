@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <style>
+        #drop_zone {
+            width: 300px;
+            height: 150px;
+            background-color: aliceblue;
+        }
+    </style>
+</head>
+
+
+<body>
+    <div id="drop_zone">
+        <p>Drag one or more files to this Drop Zone ...</p>
+        <p>for *.dll from System32</p>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById("drop_zone")
+        console.log(dropZone)
+
+        // https://stackoverflow.com/questions/10261989/html5-javascript-drag-and-drop-file-from-external-window-windows-explorer#26580724
+        // Optional.   Show the copy icon when dragging over.  Seems to only work for chrome.
+        dropZone.addEventListener('dragover', function (e) {
+            e.stopPropagation()
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'copy'
+        })
+
+
+        const p_forClone = document.createElement('p')
+        const a_forClone = document.createElement('a')
+        a_forClone.style.display = 'block'
+        a_forClone.style.marginBlockStart = '1em'
+        a_forClone.style.marginBlockEnd = '1em'
+        const div_forClone = document.createElement('div')
+
+        // Get file data on drop
+        dropZone.addEventListener('drop', async function (e) {
+            e.stopPropagation()
+            e.preventDefault()
+            const files = e.dataTransfer.files // Array of all files
+
+            if (files.length) {
+
+                const frag = document.createDocumentFragment()
+
+                for (let i = 0; i < files.length; i++) {
+                    const file_ = files[i]
+                    const baseName = file_.name
+                    const nameNoExt = baseName.slice(0, baseName.lastIndexOf('.'))
+                    console.log(nameNoExt)
+
+                    const binaryStringObj = await fileToBinaryString(file_)
+
+                    async function fileToBinaryString(file_) {
+
+                        return {
+                            str: await new Promise(function (resolve) {
+                                const reader = new FileReader()
+
+                                reader.onload = function () {
+                                    resolve(reader.result)
+                                }
+
+                                reader.readAsBinaryString(file_)
+                            }),
+                            hexAtSliceLE(start, end) {
+                                const arrToJoin = []
+                                const startMinus1 = start - 1
+                                for (let i = end - 1; i > startMinus1; i--) {
+                                    const hex = this.str.charCodeAt(i).toString(16)
+                                    arrToJoin.push(hex.length === 1 ? '0' + hex : hex)
+                                }
+                                return arrToJoin.join('')
+                            },
+                            hexAtSliceBE(start, end) {
+                                const arrToJoin = []
+                                for (let i = start; i < end; i++) {
+                                    const hex = this.str.charCodeAt(i).toString(16)
+                                    arrToJoin.push(hex.length === 1 ? '0' + hex : hex)
+                                }
+                                return arrToJoin.join('')
+                            },
+                        }
+
+
+                    }
+
+                    const offset_dotData = binaryStringObj.str.indexOf(`${nameNoExt}.pdb`)
+                    // or you could search for "RSDS" https://reverseengineering.stackexchange.com/questions/26374/is-it-possible-to-download-program-database-pdb-files-of-microsoft-windows-bin#:~:text=starting%20with%20signature-,RSDS,-(0x53445352)%2C%20is%20followed
+                    // OH, so it's a GUID (16 bytes)
+                    // A GUID does not consist of 4 uint32 values. It consists of 1 uint32, 2 uint16, and 8 uint8 values.
+                    // https://stackoverflow.com/questions/37213862/how-to-extract-a-guid-from-a-binary-packet-in-c#37216525
+                    // 33 is 16 bytes to hex(x2), + 1
+
+                    console.log(offset_dotData)
+
+                    let offset_num = offset_dotData - 20
+
+                    console.log(offset_num)
+                    const arr = []
+                    // arr.push(toHex(dllBuf.readUInt32LE(offset_num)))
+                    arr.push(binaryStringObj.hexAtSliceLE(offset_num, offset_num + 4))
+                    // offset_num += 4
+                    // arr.push(toHex(dllBuf.readUInt16LE(offset_num)))
+                    arr.push(binaryStringObj.hexAtSliceLE(offset_num + 4, offset_num + 6))
+                    // offset_num += 2
+                    // arr.push(toHex(dllBuf.readUInt16LE(offset_num)))
+                    arr.push(binaryStringObj.hexAtSliceLE(offset_num + 6, offset_num + 8))
+                    // offset_num += 2
+                    // arr.push(toHex(dllBuf.readBigUInt64BE(offset_num)))
+                    arr.push(binaryStringObj.hexAtSliceBE(offset_num + 8, offset_num + 16))
+
+                    const _GUID = arr.join('').toUpperCase() // ex: "6710D454588BF3001A29A2023405BD9D1"
+                    // link from https://github.com/stascorp/rdpwrap/issues/947#issuecomment-567736379
+                    const downloadLink = `https://msdl.microsoft.com/download/symbols/${nameNoExt}.pdb/${_GUID}1/${nameNoExt}.pdb`
+                    console.log(_GUID)
+                    console.log(downloadLink)
+
+                    const _div = div_forClone.cloneNode()
+                    const _pGUID = p_forClone.cloneNode()
+                    _pGUID.textContent = `GUID: ${_GUID}`
+                    _div.appendChild(_pGUID)
+
+                    const aLink = a_forClone.cloneNode()
+                    aLink.textContent = downloadLink
+                    aLink.href = downloadLink
+                    _div.appendChild(aLink)
+
+                    const _pName = p_forClone.cloneNode()
+                    _pName.textContent = `${nameNoExt}.pdb`
+                    _div.appendChild(_pName)
+
+                    frag.appendChild(_div)
+                }
+                document.body.appendChild(frag)
+            }
+
+        })
+
+    </script>
+</body>
+
+</html>
