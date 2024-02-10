@@ -91,7 +91,10 @@
 
                     }
 
-                    const offset_dotData = binaryStringObj.str.indexOf(`${nameNoExt}.pdb`)
+                    //for case-insensitive indexOf, toUpperCase() will increase the .length of the string, "somehow"
+                    //console.log(binaryStringObj.str.length,binaryStringObj.str.toUpperCase().length,binaryStringObj.str.toLowerCase().length)
+
+                    const offset_dotData = binaryStringObj.str.toLowerCase().indexOf(`${nameNoExt.toLowerCase()}.pdb`)
                     // or you could search for "RSDS" https://reverseengineering.stackexchange.com/questions/26374/is-it-possible-to-download-program-database-pdb-files-of-microsoft-windows-bin#:~:text=starting%20with%20signature-,RSDS,-(0x53445352)%2C%20is%20followed
                     // OH, so it's a GUID (16 bytes)
                     // A GUID does not consist of 4 uint32 values. It consists of 1 uint32, 2 uint16, and 8 uint8 values.
